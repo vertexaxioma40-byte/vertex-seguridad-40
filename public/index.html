@@ -518,7 +518,7 @@ async function petrificarEnBlockchain() {
             }
 
             // Abrir y descargar el Certificado de Existencia de Activos en PDF generado por el backend
-            window.open(`http://localhost:3000/api/v2/generar-certificado?tx=${data.tx}&dna=${data.dna}`, '_blank');
+            window.open(`${baseUrl}/api/v2/generar-certificado?tx=${data.tx}&dna=${data.dna}`, '_blank');
 
         } else {
             throw new Error(data.motivo || "Fallo en el proceso de petrificación en el servidor.");

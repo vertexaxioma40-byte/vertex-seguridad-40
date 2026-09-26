@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vertex Axioma® - Estación Forense 4.0</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/secrets.js-grempe@1.1.0/secrets.min.js"></script>
+    <script>
+        if (typeof secrets === 'undefined') {
+            document.write('<script src="https://unpkg.com/secrets.js-grempe@1.1.0/secrets.min.js"><\/script>');
+        }
+    </script>
+    
+    <style>
+        :root {
+            --primary: #1A2B4C;
+            --secondary: #0066CC;
+            --success: #0D8A56;
+            --warning: #D4AF37;
+            --dark-card: #0f172a;
+            --bg-light: #F8F9FA;
+            --border: #DEE2E6;
+        }
+
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-light); margin: 0; padding: 25px; color: #212529; }
+        .container { max-width: 950px; margin: auto; background: white; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); padding: 25px; border: 1px solid var(--border); }
+        
+        .header { border-bottom: 2px solid var(--border); padding-bottom: 15px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { margin: 0; font-size: 1.4rem; color: var(--primary); }
+        .badge { background: var(--primary); color: white; padding: 5px 12px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; }
+
+        .panel { background: #f8fafc; border: 1px solid var(--border); padding: 20px; border-radius: 8px; margin-bottom: 25px; }
+        
+        button.btn-main { padding: 12px 20px; cursor: pointer; border: none; border-radius: 6px; background: var(--secondary); color: white; font-weight: bold; width: 100%; font-size: 1rem; transition: opacity 0.2s; }
+        button.btn-main:hover { opacity: 0.9; }
+        button.btn-success { background: var(--success); }
+
+        .btn-group { display: flex; gap: 10px; margin-top: 20px; }
+        .btn-group button { flex: 1; }
+
+        /* Grid de Átomos */
+        .atoms-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 15px; }
+        .atom-card { background: white; color: #212529; padding: 14px; border-radius: 6px; border: 2px solid var(--border); font-size: 0.85rem; user-select: none; transition: all 0.2s ease; cursor: pointer; }
+        .atom-card:hover { border-color: var(--secondary); }
+        .atom-card.selected { border-color: var(--success); background: #f0fdf4; box-shadow: 0 0 0 2px var(--success); }
+        .atom-code { font-family: monospace; font-size: 0.75rem; color: #0284c7; word-break: break-all; background: #f1f5f9; padding: 4px; border-radius: 4px; display: block; margin-top: 5px; }
+
+        /* Sello UI */
+        .sello-card { background: var(--dark-card); color: white; padding: 20px; border-radius: 8px; border-top: 4px solid var(--warning); margin-top: 20px; }
+        .sello-title { color: var(--warning); font-weight: bold; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px; text-align: center; margin-bottom: 15px; }
+        
+        /* Banners y Reproductores */
+        .status-banner { padding: 12px; border-radius: 6px; font-weight: bold; margin-bottom: 15px; background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; display: none; }
+        
+        video, audio { border-radius: 6px; margin-top: 10px; width: 100%; }
+        video { background: #000; max-height: 400px; }
+        audio { height: 54px; background: #f1f5f9; border: 1px solid #cbd5e1; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>VERTEX AXIOMA® — Módulo Cifrador y Atomizador</h1>
+        <span class="badge">ESTACIÓN FORENSE 4.0</span>
+    </div>
+
+    <div class="panel">
+        <h3>1. Cifrado AES-256 & Atomización de Llave</h3>
+        <p style="font-size: 0.9rem; color: #64748b;">
+            Selecciona la evidencia descargada (.mp4, .webm, .opus, .m4a, .mp3, .wav, .ogg). El módulo generará una llave simétrica AES-256 en RAM, cifrará el archivo y fragmentará la llave en 5 átomos de custodia (Umbral 3 de 5).
+        </p>
+        
+        <input type="file" id="evidenciaInput" accept=".mp4,.webm,.opus,.ogg,.mp3,.wav,.m4a,.aac" style="margin-bottom: 15px;"><br>
+        <button id="btnCifrar" class="btn-main" onclick="cifrarYAtomizar()">🔒 CIFRAR EVIDENCIA Y EMITIR SELLO DE CONFORMIDAD FISCAL 4.0</button>
+    </div>
+
+    <div id="selloPanel" style="display: none;" class="sello-card">
+        <div class="sello-title">⚖️ SELLO DE CONFORMIDAD FISCAL 4.0</div>
+        <div style="font-size: 0.85rem; line-height: 1.6;">
+            <p><strong>Estado:</strong> EVIDENCIA CIFRADA Y MANTENIDA EN CONFIDENCIALIDAD</p>
+            <p><strong>Hash del Contenedor Cifrado:</strong> <span id="selloHash" style="color: #38bdf8; font-family: monospace;"></span></p>
+            <p><strong>Regla de Soberanía:</strong> Llave Simétrica fragmentada bajo algoritmo de Shamir (Requiere 3 de 5 átomos).</p>
+        </div>
+        
+        <h4 style="color: var(--warning); margin-top: 20px; border-bottom: 1px solid #334155; padding-bottom: 5px;">
+            Distribución de Átomos en Nodos de Custodia:
+        </h4>
+        <div class="atoms-grid" id="atomsDistributionGrid"></div>
+
+        <div class="btn-group">
+            <button class="btn-main" style="background: var(--warning); color: black;" onclick="descargarSelloManual()">
+                📥 DESCARGAR JSON
+            </button>
+            <button class="btn-main" style="background: #e2e8f0; color: #0f172a;" onclick="imprimirSello()">
+                🖨️ IMPRIMIR / GUARDAR EN PDF
+            </button>
+        </div>
+    </div>
+
+    <div id="reconstruccionPanel" style="display: none; margin-top: 30px;" class="panel">
+        <h3>2. Unidad de Reconstrucción & Peritaje</h3>
+        <p style="font-size: 0.9rem; color: #64748b;">
+            Haz clic en al menos <strong>3 átomos</strong> de los nodos de custodia para seleccionar la combinación requerida y recomponer la llave.
+        </p>
+
+        <div class="atoms-grid" id="atomsReconstructionGrid"></div>
+
+        <button id="btnReconstruir" class="btn-main btn-success" style="margin-top: 20px;" onclick="ejecutarReconstruccion()">
+            🔓 RECONSTRUIR LLAVE SIMÉTRICA Y DESBLOQUEAR EVIDENCIA
+        </button>
+	<button class="btn-main" style="background: #7c3aed; color: white; margin-top: 10px;" onclick="petrificarEnBlockchain()">
+ 	   🌐 PETRIFICAR EN BLOCKCHAIN (SELLO DE INMUTABILIDAD TRANSFRONTERIZA)
+	</button>
+
+        <div id="reproductorContainer" style="display: none; margin-top: 20px;">
+            <div id="statusBanner" class="status-banner">
+                ✅ Evidencia descifrada con éxito. Llave reensamblada en memoria RAM.
+            </div>
+            
+            <video id="videoPlayer" controls style="display: none;"></video>
+            <audio id="audioPlayer" controls style="display: none;"></audio>	
+        </div>
+    </div>
+</div>
+
+<script>
+let paqueteCifrado = null;
+let atomosGenerados = [];
+let atomosSeleccionados = [];
+let ultimoSelloPayload = null;
+
+const NODOS = [
+    { id: "NODO-01", nombre: "AFIP / Registro Fiscal 4.0", icono: "🏛️" },
+    { id: "NODO-02", nombre: "Estación Forense Enclave TPM", icono: "🔒" },
+    { id: "NODO-03", nombre: "Sello Inmutabilidad Transfronteriza", icono: "🌐" },
+    { id: "NODO-04", nombre: "Bóveda Digital Judicial", icono: "⚖️" },
+    { id: "NODO-05", nombre: "Nodo Vertex Axioma®", icono: "⚡" }
+];
+
+const hexToBytes = hex => new Uint8Array(hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+const bytesToHex = bytes => Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+
+// Configuración de la red y el Smart Contract
+const CONTRACT_ADDRESS = "0xTuDireccionDeSmartContractAqui...";
+const CONTRACT_ABI = [
+    "function petrificarPrueba(bytes32 _hashContenedor, string memory _selloURI) public",
+    "event EvidenciaPetrificada(bytes32 indexed hashContenedor, address indexed emisor, uint256 timestamp, string selloMetadataURI)"
+];
+
+async function calcularHashReal(buffer) {
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+    return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function determinarMimeType(archivo) {
+    if (archivo.type && archivo.type.trim() !== "") return archivo.type;
+    const ext = archivo.name.split('.').pop().toLowerCase();
+    const mapa = {
+        'opus': 'audio/ogg', 'ogg': 'audio/ogg', 'mp3': 'audio/mpeg',
+        'wav': 'audio/wav', 'm4a': 'audio/mp4', 'aac': 'audio/aac',
+        'webm': 'video/webm', 'mp4': 'video/mp4'
+    };
+    return mapa[ext] || 'video/mp4';
+}
+
+// 1. CIFRAR ARCHIVO Y ATOMIZAR LLAVE
+async function cifrarYAtomizar() {
+    try {
+        if (!window.crypto || !window.crypto.subtle) {
+            alert("⚠️ Error: La API 'crypto.subtle' requiere protocolo seguro (HTTPS o archivo local file://).");
+            return;
+        }
+        if (typeof secrets === 'undefined') {
+            alert("⚠️ Error: No se pudo cargar la librería 'secrets.js'. Verificá la conexión a internet.");
+            return;
+        }
+
+        const fileInput = document.getElementById('evidenciaInput');
+        if (!fileInput.files || fileInput.files.length === 0) {
+            alert("⚠️ Por favor seleccioná un archivo de evidencia antes de hacer clic.");
+            return;
+        }
+
+        const archivo = fileInput.files[0];
+        const rawBuffer = await archivo.arrayBuffer();
+        const mimeTypeReal = determinarMimeType(archivo);
+
+        const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+
+        const encryptedBuffer = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, rawBuffer);
+        const hashCifrado = await calcularHashReal(encryptedBuffer);
+
+        const rawKeyBytes = await crypto.subtle.exportKey("raw", key);
+        const keyHex = bytesToHex(new Uint8Array(rawKeyBytes));
+
+        const shares = secrets.share(keyHex, 5, 3);
+
+        paqueteCifrado = {
+            bufferCifrado: encryptedBuffer,
+            ivHex: bytesToHex(iv),
+            hashCifrado: hashCifrado,
+            mimeType: mimeTypeReal,
+            nombreArchivo: archivo.name
+        };
+
+        atomosGenerados = shares.map((share, index) => ({
+            id: `ATOM-0${index + 1}`,
+            share: share,
+            nodo: NODOS[index]
+        }));
+
+        document.getElementById('selloHash').innerText = "0x" + hashCifrado;
+        const gridSello = document.getElementById('atomsDistributionGrid');
+        gridSello.innerHTML = "";
+
+        atomosGenerados.forEach(a => {
+            gridSello.innerHTML += `
+                <div class="atom-card" style="cursor:default;">
+                    <strong>${a.nodo.icono} ${a.nodo.nombre}</strong> (${a.id})
+                    <span class="atom-code">${a.share.substring(0, 32)}...</span>
+                </div>`;
+        });
+
+        document.getElementById('selloPanel').style.display = 'block';
+        document.getElementById('reconstruccionPanel').style.display = 'block';
+        renderizarNodosReconstruccion();
+
+        ultimoSelloPayload = {
+            protocolo: "VERTEX AXIOMA®",
+            emision: "Sello de Conformidad Fiscal 4.0",
+            fecha_timestamp: new Date().toISOString(),
+            estado: "EVIDENCIA_BLINDADA_Y_ATOMIZADA",
+            hash_contenedor_cifrado: "0x" + hashCifrado,
+            esquema_criptografico: {
+                algoritmo_cifrado: "AES-256-GCM",
+                algoritmo_atomizacion: "Shamir's Secret Sharing",
+                umbral_requerido: 3,
+                total_atomos: 5
+            },
+            distribucion_nodos: atomosGenerados.map(a => ({
+                atomo_id: a.id,
+                nodo_custodia: a.nodo.nombre,
+                fragmento_hash: a.share
+            }))
+        };
+
+        descargarSelloJSON(ultimoSelloPayload);
+
+    } catch (err) {
+        console.error("Error al cifrar:", err);
+        alert("❌ Ocurrió un error inesperado al cifrar: " + err.message);
+    }
+}
+
+// 2. RENDERIZAR SELECCIÓN DE ÁTOMOS
+function renderizarNodosReconstruccion() {
+    const gridRec = document.getElementById('atomsReconstructionGrid');
+    gridRec.innerHTML = "";
+    atomosSeleccionados = [];
+
+    atomosGenerados.forEach(a => {
+        const card = document.createElement('div');
+        card.className = 'atom-card';
+        card.id = `cardRec-${a.id}`;
+        card.onclick = () => toggleAtomo(a.id);
+
+        card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; font-weight:bold; pointer-events:none;">
+                <span>${a.nodo.icono} ${a.nodo.nombre}</span>
+                <input type="checkbox" id="chkRec-${a.id}" style="pointer-events:none;">
+            </div>
+            <span class="atom-code" style="pointer-events:none;">${a.share.substring(0, 28)}...</span>
+        `;
+        gridRec.appendChild(card);
+    });
+}
+
+function toggleAtomo(atomoId) {
+    const card = document.getElementById(`cardRec-${atomoId}`);
+    const chk = document.getElementById(`chkRec-${atomoId}`);
+    const atomo = atomosGenerados.find(a => a.id === atomoId);
+
+    const yaSeleccionado = atomosSeleccionados.some(a => a.id === atomoId);
+
+    if (yaSeleccionado) {
+        chk.checked = false;
+        card.classList.remove('selected');
+        atomosSeleccionados = atomosSeleccionados.filter(a => a.id !== atomoId);
+    } else {
+        chk.checked = true;
+        card.classList.add('selected');
+        atomosSeleccionados.push(atomo);
+    }
+}
+
+// 3. EJECUTAR RECONSTRUCCIÓN CON VALIDACIÓN DE SEGURIDAD
+async function ejecutarReconstruccion() {
+    try {
+        if (!paqueteCifrado) {
+            alert("⚠️ Primero debés cifrar un archivo de evidencia en el Paso 1.");
+            return;
+        }
+
+        if (atomosSeleccionados.length < 3) {
+            alert(`❌ Violación de Umbral: Seleccionaste ${atomosSeleccionados.length} átomos. Necesitás hacer clic en al menos 3 de las 5 tarjetas para reconstruir la llave.`);
+            return;
+        }
+
+        const sharesParaCombinar = atomosSeleccionados.map(a => a.share);
+        const keyHexReconstruida = secrets.combine(sharesParaCombinar);
+        const keyBytes = hexToBytes(keyHexReconstruida);
+
+        const cryptoKey = await crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, ["decrypt"]);
+        const iv = hexToBytes(paqueteCifrado.ivHex);
+        
+        const decryptedBuffer = await crypto.subtle.decrypt(
+            { name: "AES-GCM", iv: iv },
+            cryptoKey,
+            paqueteCifrado.bufferCifrado
+        );
+
+        const mime = paqueteCifrado.mimeType;
+        const blob = new Blob([decryptedBuffer], { type: mime });
+        const mediaUrl = URL.createObjectURL(blob);
+        
+        const videoPlayer = document.getElementById('videoPlayer');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const container = document.getElementById('reproductorContainer');
+        const banner = document.getElementById('statusBanner');
+
+        container.style.display = 'block';
+        banner.style.display = 'block';
+
+        videoPlayer.pause();
+        audioPlayer.pause();
+
+        const ext = paqueteCifrado.nombreArchivo ? paqueteCifrado.nombreArchivo.split('.').pop().toLowerCase() : '';
+        const esAudio = mime.startsWith('audio/') || ['opus', 'ogg', 'mp3', 'wav', 'm4a', 'aac', 'flac'].includes(ext);
+
+        const playerActivo = esAudio ? audioPlayer : videoPlayer;
+        const playerInactivo = esAudio ? videoPlayer : audioPlayer;
+
+        playerInactivo.style.display = 'none';
+        playerActivo.style.display = 'block';
+
+        playerActivo.src = mediaUrl;
+        playerActivo.volume = 1.0;
+        playerActivo.muted = false;
+        playerActivo.load();
+
+        const playPromise = playerActivo.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(err => {
+                console.log("Audio/Video listo. Pulsá Play manualmente si el navegador lo requiere:", err);
+            });
+        }
+
+    } catch (e) {
+        console.error("Error en reconstrucción:", e);
+        alert("❌ Error: Falló la reconstrucción. Los átomos seleccionados no coinciden o están alterados.");
+    }
+}
+
+// DESCARGAS E IMPRESIÓN
+function descargarSelloJSON(datosSello) {
+    try {
+        const jsonStr = JSON.stringify(datosSello, null, 2);
+        const blob = new Blob([jsonStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.href = url;
+        downloadAnchor.download = `Sello_Conformidad_Fiscal_4.0_${Date.now()}.json`;
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+        
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+        console.error("Error al descargar JSON:", err);
+    }
+}
+
+function descargarSelloManual() {
+    if (ultimoSelloPayload) descargarSelloJSON(ultimoSelloPayload);
+    else alert("Primero debés procesar y cifrar un archivo de evidencia.");
+}
+
+function imprimirSello() {
+    if (!ultimoSelloPayload) {
+        alert("Primero debés procesar y cifrar un archivo.");
+        return;
+    }
+
+    let atomosFilasHTML = "";
+    atomosGenerados.forEach(a => {
+        atomosFilasHTML += `
+            <div style="border: 1px solid #cbd5e1; padding: 8px; border-radius: 4px; background: #f8fafc; margin-bottom: 8px; font-size: 11px;">
+                <strong>${a.nodo.icono} ${a.nodo.nombre}</strong> <span style="color:#64748b;">(${a.id})</span>
+                <div style="font-family: monospace; font-size: 9.5px; color: #0284c7; word-break: break-all; margin-top: 3px;">
+                    ${a.share}
+                </div>
+            </div>
+        `;
+    });
+
+    const ventanaImpresion = window.open('', '_blank', 'width=800,height=900');
+    ventanaImpresion.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Certificado - Sello de Conformidad Fiscal 4.0</title>
+            <style>
+                body { font-family: 'Segoe UI', Arial, sans-serif; padding: 30px; color: #1e293b; line-height: 1.4; }
+                .header { border-bottom: 2px solid #1A2B4C; padding-bottom: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; }
+                .title { font-size: 16px; font-weight: bold; color: #1A2B4C; text-transform: uppercase; }
+                .subtitle { font-size: 10px; color: #64748b; font-weight: 600; }
+                .box { background: #f8fafc; padding: 12px; border: 1px solid #e2e8f0; border-left: 4px solid #D4AF37; font-size: 11px; margin-bottom: 20px; }
+                .hash { font-family: monospace; color: #0284c7; background: #e0f2fe; padding: 2px 6px; border-radius: 3px; word-break: break-all; }
+                .footer { border-top: 1px dashed #cbd5e1; margin-top: 30px; padding-top: 10px; font-size: 9px; color: #94a3b8; display: flex; justify-content: space-between; }
+                @media print { body { padding: 0; } }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <div>
+                    <div class="title">CERTIFICADO DE CONFORMIDAD FISCAL 4.0</div>
+                    <div class="subtitle">PROTOCOLO VERTEX AXIOMA® — AUDITORÍA Y PETRIFICACIÓN DE PRUEBA</div>
+                </div>
+                <div style="text-align: right; font-size: 9px; color: #64748b;">
+                    <strong>Emisión:</strong><br>${new Date().toLocaleString('es-AR')}
+                </div>
+            </div>
+
+            <div class="box">
+                <p style="margin: 0 0 5px 0;"><strong>Estado:</strong> <span style="color: #0D8A56; font-weight: bold;">EVIDENCIA CIFRADA Y MANTENIDA EN CONFIDENCIALIDAD</span></p>
+                <p style="margin: 0 0 5px 0;"><strong>Hash SHA-256 del Contenedor:</strong> <span class="hash">${ultimoSelloPayload.hash_contenedor_cifrado}</span></p>
+                <p style="margin: 0;"><strong>Regla de Soberanía:</strong> Llave Simétrica AES-256 fragmentada bajo algoritmo de Shamir (Requiere umbral de 3 de 5 átomos).</p>
+            </div>
+
+            <h3 style="font-size: 12px; color: #1A2B4C; text-transform: uppercase; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; margin-bottom: 12px;">
+                Distribución de Átomos en Nodos de Custodia
+            </h3>
+
+            ${atomosFilasHTML}
+
+            <div class="footer">
+                <span>Vertex Axioma® — Sello de Inmutabilidad Transfronteriza</span>
+                <span>Garantía de Integridad Forense Digital</span>
+            </div>
+
+            <script>
+                window.onload = function() {
+                    window.print();
+                    window.onafterprint = function() { window.close(); };
+                };
+            <\/script>
+        </body>
+        </html>
+    `);
+    ventanaImpresion.document.close();
+}
+
+async function petrificarEnBlockchain() {
+    if (!paqueteCifrado) {
+        alert("⚠️ Primero debés cifrar un archivo de evidencia.");
+        return;
+    }
+
+    try {
+        alert("⏳ Enviando ADN Digital a la API de Vertex Axioma®...");
+
+        // 1. Petición al Servidor Vertex Axioma
+        const response = await fetch('http://localhost:3000/api/v2/petrificar-adn-digital', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                rootHash: paqueteCifrado.hashCifrado,
+                metaHash: paqueteCifrado.ivHex,
+                droneId: "ESTACION-FORENSE-01",
+                timestamp: new Date().toISOString()
+            })
+        });
+
+        // 2. Lectura segura de respuesta (evita errores si el servidor devuelve HTML 404/500)
+        const textResponse = await response.text();
+        let data;
+
+        try {
+            data = JSON.parse(textResponse);
+        } catch (e) {
+            throw new Error("El servidor devolvió una respuesta no válida (posible error HTML 404/500 en Node.js).");
+        }
+
+        // 3. Procesamiento de la respuesta exitosa
+        if (response.ok && data.estado === "PETRIFICADO") {
+            
+            // Vincular los datos recibidos al Sello de Conformidad Fiscal 4.0
+            if (typeof ultimoSelloPayload !== 'undefined' && ultimoSelloPayload) {
+                ultimoSelloPayload.petrificacion_blockchain = {
+                    nodo: "Vertex Axioma Server",
+                    dna_digital: data.dna,
+                    tx_hash: data.tx,
+                    estado_petrificacion: "PETRIFICADO_EN_BLOCKCHAIN"
+                };
+            }
+
+            alert(`✅ PETRIFICACIÓN EXITOSA\n\nADN Digital: ${data.dna}\nTx Hash: ${data.tx}`);
+
+            // Descargar automáticametne el Sello JSON actualizado con el registro Blockchain
+            if (typeof descargarSelloJSON === 'function' && ultimoSelloPayload) {
+                descargarSelloJSON(ultimoSelloPayload);
+            }
+
+            // Abrir y descargar el Certificado de Existencia de Activos en PDF generado por el backend
+            window.open(`http://localhost:3000/api/v2/generar-certificado?tx=${data.tx}&dna=${data.dna}`, '_blank');
+
+        } else {
+            throw new Error(data.motivo || "Fallo en el proceso de petrificación en el servidor.");
+        }
+
+    } catch (err) {
+        console.error("Error en conexión con API Vertex:", err);
+        alert("❌ Error al conectar con el servidor Vertex Axioma: " + err.message);
+    }
+}
+
+</script>
+</body>
+</html>

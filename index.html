@@ -474,7 +474,9 @@ async function petrificarEnBlockchain() {
         alert("⏳ Enviando ADN Digital a la API de Vertex Axioma®...");
 
         // 1. Petición al Servidor Vertex Axioma
-        const response = await fetch('http://localhost:3000/api/v2/petrificar-adn-digital', {
+       const baseUrl = window.location.origin;
+
+        const response = await fetch(`${baseUrl}/api/v2/petrificar-adn-digital`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

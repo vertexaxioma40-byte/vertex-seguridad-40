@@ -374,4 +374,5 @@ app.get('/api/v2/generar-certificado', async (req, res) => {
     doc.end();
 });
 
-app.listen(3000, () => console.log('🚀 Vertex Axioma activo. Puerto: 3000'));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`🚀 Vertex Axioma activo en puerto: ${PORT}`));
